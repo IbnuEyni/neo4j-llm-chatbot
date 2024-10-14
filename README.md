@@ -15,7 +15,7 @@ Response Generation: User inputs are processed to generate responses using a pow
 
 To get started, clone this repository and install the required dependencies:
 
-    git clone https://github.com/IbnuEyni/llm-chatbot-python.git
+    git clone https://github.com/IbnuEyni/neo4j-llm-chatbot.git
     cd neo4j-llm-chatbot
     pip install -r requirements.txt
 
