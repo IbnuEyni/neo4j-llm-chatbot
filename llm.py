@@ -6,10 +6,12 @@ from graph import graph
 
 load_dotenv()
 
-
 # Create the LLM
-llm = ChatGoogleGenerativeAI(model="gemini-pro",
-                             google_api_key=st.secrets["GOOGLE_API_KEY"] 
-                             )
+llm =  ChatGoogleGenerativeAI(
+        model="gemini-1.5-pro",
+        temperature=0,
+        max_tokens=None,
+        timeout=None,
+        google_api_key = os.getenv('GEMINI_API_KEY')
+    )
 
-# Create the Embedding model

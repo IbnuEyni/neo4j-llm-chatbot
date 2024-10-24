@@ -7,36 +7,62 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain import hub
 from langchain_core.prompts import PromptTemplate
 from utils import get_session_id
+from neo4j.exceptions import CypherSyntaxError
 from llm import llm
 from graph import graph
 # from tools.vector import get_movie_plot
-from tools.cypher import cypher_qa
+from tools.cyph import cypher_qa, entity_extract
 
 # Create a movie chat chain
 chat_prompt = ChatPromptTemplate.from_messages(
     [
-        ("system", "You are a movie expert providing information about movies."),
+        ("system", "You are a expert providing information about knwoledges from graph data base you are connected with."),
         ("human", "{input}"),
     ]
 )
-movie_chat = chat_prompt | llm | StrOutputParser()
 
-# Create a set of toolss
-tools =  [
+movie_chat = chat_prompt | llm | StrOutputParser()
+def validate_cypher_query(cypher_query):
+    try:
+        result = graph.query(cypher_query)
+        return True, result  
+    except CypherSyntaxError as e:
+        return False, "invalid Cypher"
+
+def cypher_qa_with_validation(input_text):
+    cypher_query = cypher_qa(input_text)
+
+    # Validate the generated Cypher query
+    is_valid, response = validate_cypher_query(cypher_query)
+
+    if is_valid:
+        # Return valid query result
+        return response
+    else:
+        # Return error message if the query is invalid
+        return f"Invalid Cypher Query: {response}"
+
+# Create a set of tools
+tools = [
     Tool.from_function(
         name="General Chat",
-        description="For general movie chat not covered by other tools",
+        description="For general chat not covered by other tools",
         func=movie_chat.invoke,
     ),
     # Tool.from_function(
     #     name="Movie Plot Search",
-    #     description="From when you need to find information about movies based on a plot.",
+    #     description="For when you need to find information about movies based on a plot.",
     #     func=get_movie_plot,
     # ),
+    # Tool.from_function(
+    #     name="Entity Extraction",
+    #     description = "Extract entities from the user queries",
+    #     func=entity_extract
+    # ),
     Tool.from_function(
-        name="Movie information",
-        description="Provide information about movies questions using Cypher",
-        func = cypher_qa
+        name="Information",
+        description="Provide information about the content in the neo4j graph you are connected with using Cypher",
+        func=cypher_qa
     )
 ]
 
@@ -44,14 +70,13 @@ tools =  [
 def get_memory(session_id):
     return Neo4jChatMessageHistory(session_id=session_id, graph=graph)
 
-# Create a prompt template
-agent_prompt = PromptTemplate.from_template("""
-You are a movie expert providing information about movies.
+# Create the agent prompt template
+agent_prompt = PromptTemplate.from_template(""" 
 Be as helpful as possible and return as much information as possible.
-Do not answer any questions that do not relate to movies, actors or directors.
+You are a movies expert providing information about movies.
 
-Do not answer any questions using your pre-trained knowledge, only use the information provided in the context.
-
+you are a Graph Search tool equipped to provide insightful answers by delving into, comprehending, \
+and condensing information from Graph Database.
 TOOLS:
 ------
 
@@ -74,7 +99,6 @@ When you have a response to say to the Human, or if you do not need to use a too
 Thought: Do I need to use a tool? No
 Final Answer: [your response here]
 ```
-
 Begin!
 
 Previous conversation history:
@@ -83,33 +107,32 @@ Previous conversation history:
 New input: {input}
 {agent_scratchpad}
 """)
-
-# Create agent
+# Create the agent
 agent = create_react_agent(llm, tools, agent_prompt)
 agent_executor = AgentExecutor(
     agent=agent,
     tools=tools,
     verbose=True
-    )
+)
 chat_agent = RunnableWithMessageHistory(
     agent_executor,
     get_memory,
     input_messages_key="input",
     history_messages_key="chat_history",
 )
-# Create a handler to call the agent
 
+# Create a handler to call the agent
 def generate_response(user_input):
     """
-    Create a handler that calls the Conversational agent
-    and returns a response to be rendered in the UI
+    Handler to call the conversational agent and return a response to be rendered in the UI.
     """
     response = chat_agent.invoke(
         {"input": user_input},
-        {"configurable": {"session_id": get_session_id()}},)
-
+        {"configurable": {"session_id": get_session_id()}},
+    )
+    if response['output'] is ValueError:
+        return 'paraphrase your question'
     return response['output']
-
 
 # The @tool Decorator Note:
 # The @tool decorator can be used instead of Tool.from_function for simpler cases.

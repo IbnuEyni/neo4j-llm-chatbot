@@ -8,7 +8,7 @@ st.set_page_config("Ebert", page_icon=":movie_camera:")
 # Set up Session State
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Hi, I'm BoiCypherKG Chatbot!  How can I help you?"},
+        {"role": "assistant", "content": "Hi, I'm Chatbot!  How can I help you?"},
     ]
 
 # Submit handler
@@ -36,6 +36,5 @@ for message in st.session_state.messages:
 if question := st.chat_input("What is up?"):
     # Display user message in chat message container
     write_message('user', question)
-
     # Generate a response
     handle_submit(question)
